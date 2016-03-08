@@ -195,8 +195,3 @@ $arComponentParameters = [
         ]
     ]
 ];
-
-//var_dump(array_keys($arComponentParameters['PARAMETERS']));
-
-
-array_map(function($el){echo $el.'<br>';},array_keys($arComponentParameters['PARAMETERS']));
