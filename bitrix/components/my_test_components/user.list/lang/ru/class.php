@@ -58,3 +58,4 @@ $MESS['XML_ID'] = 'Внешний идентификатор';
 $MESS['STORED_HASH'] = 'Хеш пароля';
 $MESS['LOGIN_ATTEMPTS'] = 'Попыток входа';
 $MESS['PASSWORD'] = 'Пароль';
+$MESS['USER_LIST_ERROR_EXPORT_MESSAGE'] = 'Ошибка экспорта списка пользователей в файл';
