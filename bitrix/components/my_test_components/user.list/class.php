@@ -47,7 +47,7 @@ class CUserList extends CBitrixComponent
     {
         $result = [
             'SHOW_NAV'     => $params['SHOW_NAV'] === 'Y' ? 'Y' : 'N',
-            'PER_PAGE'     => (int)$params['PER_PAGE'],
+            'PER_PAGE'     => 0 === (int)$params['PER_PAGE'] ? 10 : (int)$params['PER_PAGE'],
             'SHOW_ALL'     => $params['SHOW_ALL'] === 'Y' ? 'Y' : 'N',
             'SORT_BY'      => strlen($params['SORT_BY']) ? $params['SORT_BY'] : 'ID',
             'SORT_ORDER'   => $params['SORT_ORDER'] === 'ASC' ? 'asc' : 'desc',
@@ -179,6 +179,16 @@ class CUserList extends CBitrixComponent
      */
     public function executeComponent()
     {
+        //Экспорт списка в файл
+        try {
+            $this->exportToFile();
+        } catch (\Bitrix\Main\SystemException $e) {
+            $this->arResult['ERROR'] = Loc::getMessage('USER_LIST_ERROR_EXPORT_MESSAGE');
+            $this->includeComponentTemplate();
+
+            return false;
+        }
+
         $cache = Cache::createInstance();
 
         if ($this->arParams['CACHE_TYPE'] === 'Y' && $cache->initCache($this->arParams['CACHE_TIME'], $this->getCacheID($this->getAdditionalCacheID()), SITE_ID.'/'.$this->getRelativePath())
@@ -204,5 +214,91 @@ class CUserList extends CBitrixComponent
         }
 
         $this->includeComponentTemplate();
+    }
+
+
+    /**
+     * Экспорт списка пользователей в файл
+     * 
+     * @return bool
+     *
+     * @throws \Bitrix\Main\SystemException
+     */
+    public function exportToFile()
+    {
+        //Получаем значение GET параметра export
+        $request = Application::getInstance()->getContext()->getRequest();
+        $export = htmlspecialchars($request->getQuery('export'));
+
+        //Если задан неддопустимый формат импорта
+        if (!in_array($export, ['xls', 'csv'], true)) {
+            return false;
+        }
+
+        //Увеличиваем время выполнения скрипта
+        set_time_limit(30);
+        //Даем скрипту больше памяти на выполнение
+        ini_set('memory_limit', '1024M');
+
+        //Получаем весь список пользователей
+        $this->arParams['SHOW_ALL'] = 'Y';
+        $this->arParams['PER_PAGE'] = PHP_INT_MAX;
+        $this->arResult['USERS'] = $this->getUserList();
+        $this->arResult['FIELD_NAMES'] = $this->getSelectedFieldsNames($this->arResult['USERS']);
+
+        //Добавляем названия столбцов на языке сайта
+        $this->arResult['USERS'] = array_merge([$this->arResult['FIELD_NAMES']], $this->arResult['USERS']);
+
+        $this->createFile($this->arResult['USERS'], $export);
+
+        return true;
+    }
+
+
+    /**
+     * Создать файл и отдать его пользователю
+     * 
+     * @param $data
+     * @param $extension
+     */
+    private function createFile($data, $extension)
+    {
+        //Прервываем буфер вывода, чтобы лишняя информация не попала в конечный файл
+        ob_end_clean();
+
+        //Формируем название файла
+        $fileName = 'user_list_' . date('Y_m_d') . '.' . $extension;
+
+        //Устанавливаем заголовки
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+        header('Content-Type: application/vnd.ms-excel');
+
+        //Флаг для обработки первой строки массива
+        $flag = false;
+
+        foreach ($data as $row) {
+            if (!$flag) {
+                //Вывод заголовков столбцов
+                echo implode("\t", $row) . "\n";
+                //Отмечаем что заголовки выведены
+                $flag = true;
+                //Прекращаем обработку первого элемента массива
+                continue;
+            }
+            //Подготавливаем к выводу очередной элемент массива (строку)
+            array_walk($row,
+                function (&$str) {
+                    $str = preg_replace("/\t/", "\\t", $str);
+                    $str = preg_replace("/\r?\n/", "\\n", $str);
+                    if (false !== strstr($str, '"')) {
+                        $str = '"' . str_replace('"', '""', $str) . '"';
+                    }
+                }
+            );
+            //Вывести строку
+            echo implode("\t", array_values($row)) . "\n";
+        }
+        //Прекращаем выполнение скрипта
+        die;
     }
 }
