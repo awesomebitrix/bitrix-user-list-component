@@ -35,7 +35,11 @@ Loc::loadMessages(__FILE__);
             <?=$arResult['NAV_STRING']?>
         </div>
     <?php endif;?>
-
+    <a href="?export=xls" target="_blank">Выгрузить в xls</a>
+<?php elseif(null !== $arResult['ERROR']):?>
+    <div class="alert alert-danger">
+        <?=$arResult['ERROR']?>
+    </div>
 <?php else:?>
     <div class="alert alert-danger">
         <?=Loc::getMessage('NO_USERS_MESSAGE');?>
